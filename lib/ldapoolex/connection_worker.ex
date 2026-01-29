@@ -62,6 +62,11 @@ defmodule LDAPoolex.ConnectionWorker do
 
   def delete(conn, dn), do: Connection.call(conn, {:delete, dn})
 
+  @doc """
+  Calls `:eldap.open` and returns an LDAP connection handle, where `conn` is the pid returned by `start_link/1`
+  """
+  def request(conn), do: Connection.call(conn, :request)
+
   def close(conn), do: Connection.call(conn, :close)
 
   @impl Connection
@@ -129,6 +134,14 @@ defmodule LDAPoolex.ConnectionWorker do
     {:stop, :close, :ok, state}
   end
 
+  def handle_call(:request, _, %{handle: nil} = state) do
+    {:reply, {:error, :closed}, state}
+  end
+
+  def handle_call(:request, _, %{handle: handle} = state) do
+    {:reply, {:ok, handle}, state}
+  end
+
   def handle_call({:add, dn, attributes}, _, %{handle: handle} = state) do
     handle
     |> :eldap.add(dn, attributes)
@@ -181,6 +194,7 @@ defmodule LDAPoolex.ConnectionWorker do
 
   defp handle_eldap_response(:ok, s), do: {:reply, :ok, s}
   defp handle_eldap_response({:ok, {:eldap_search_result, _, _} = res}, s), do: {:reply, res, s}
+  defp handle_eldap_response({:ok, {:eldap_search_result, _, _, _} = res}, s), do: {:reply, res, s}
   defp handle_eldap_response({:ok, {:referral, referrals}}, s), do: {:reply, {:ok, referrals}, s}
   defp handle_eldap_response({:error, :ldap_closed} = e, s), do: {:disconnect, e, e, s}
   defp handle_eldap_response({:error, _} = e, s), do: {:reply, e, s}
