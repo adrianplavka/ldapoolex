@@ -5,7 +5,7 @@ defmodule LDAPoolex do
 
   def add(pool_name, dn, attributes) do
     :poolboy.transaction(pool_name, fn worker ->
-        Connection.call(worker, {:add, dn, attributes})
+      Connection.call(worker, {:add, dn, attributes})
     end)
   end
 
@@ -67,6 +67,22 @@ defmodule LDAPoolex do
   def delete(pool_name, dn) do
     :poolboy.transaction(pool_name, fn worker ->
       Connection.call(worker, {:delete, dn})
+    end)
+  end
+
+  @doc """
+  Calls to retrieve underlying LDAP handle
+  """
+
+  def request(pool_name, cb) do
+    :poolboy.transaction(pool_name, fn worker ->
+      case Connection.call(worker, :request) do
+        {:ok, handle} ->
+          cb.(handle)
+
+        {:error, error} ->
+          error
+      end
     end)
   end
 
